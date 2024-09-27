@@ -118,3 +118,10 @@ void uart_puts(char *s)
 	}
 }
 
+int uart_getc(void)
+{
+    if ((uart_read_reg(LSR) & 0x01) == 1)
+        return uart_read_reg(RHR);
+    else
+        return -1;
+}
