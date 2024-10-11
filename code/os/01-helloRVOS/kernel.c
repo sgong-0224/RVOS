@@ -5,18 +5,15 @@ extern int  uart_getc(void);
 void start_kernel(void)
 {
 	uart_init();
-    int a = uart_getc();
-    if(a!=-1)
-        uart_putc(a);
-	
-    uart_putc('u');
-	uart_putc('s');
-	uart_putc('t');
-	uart_putc('c');
-	uart_putc(':');
-	uart_putc(' ');
     uart_puts("Hello, RVOS!\n");
 
-	while (1) {}; // stop here!
+	while (1) {
+        int a = 0;
+        while((a=uart_getc())!=-1){
+            if(a==0xd)
+                uart_putc(0xa); // CR -> LF+CR
+            uart_putc(a);
+        }
+    }; // stop here!
 }
 
