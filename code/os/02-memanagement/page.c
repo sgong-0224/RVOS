@@ -26,8 +26,9 @@ static uint32_t _num_pages = 0;
 #define PAGE_SIZE 4096
 #define PAGE_ORDER 12
 
-#define PAGE_TAKEN (uint8_t)(1 << 0)
-#define PAGE_LAST  (uint8_t)(1 << 1)
+#define PAGE_TAKEN   (uint8_t)(1 << 0)
+#define PAGE_LAST    (uint8_t)(1 << 1)
+#define MALLOC_READY (uint8_t)(1 << 2)
 
 /*
  * Page Descriptor 

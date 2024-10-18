@@ -7,5 +7,6 @@ SRCS_C = \
 	uart.c \
 	printf.c \
 	page.c \
+	byte_alloc.c \
 
 include ../common.mk
