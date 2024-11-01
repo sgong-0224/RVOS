@@ -34,8 +34,9 @@ reg_t trap_handler(reg_t epc, reg_t cause)
 	} else {
 		/* Synchronous trap - exception */
 		printf("Sync exceptions! Code = %ld\n", cause_code);
-		panic("OOPS! What can I do!");
-		//return_pc += 4;
+		task_delay(1000);
+        //panic("OOPS! What can I do!");
+		return_pc += 4;
 	}
 
 	return return_pc;
@@ -47,13 +48,13 @@ void trap_test()
 	 * Synchronous exception code = 7
 	 * Store/AMO access fault
 	 */
-	*(int *)0x00000000 = 100;
+	//*(int *)0x00000000 = 100;
 
 	/*
 	 * Synchronous exception code = 5
 	 * Load access fault
 	 */
-	//int a = *(int *)0x00000000;
+	int a = *(int *)0x00000000;
 
 	uart_puts("Yeah! I'm return back from trap!\n");
 }

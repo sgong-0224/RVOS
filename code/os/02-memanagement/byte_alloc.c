@@ -13,130 +13,110 @@ extern ptr_t BSS_END;
 extern ptr_t HEAP_START;
 extern ptr_t HEAP_SIZE;
 
-/*
- * _alloc_start points to the actual start address of heap pool
- * _alloc_end points to the actual end address of heap pool
- * _num_bytes holds the actual max number of pages we can allocate.
- */
-static ptr_t _alloc_start = 0;
-static ptr_t _alloc_end = 0;
-static uint32_t _num_bytes = 0;
+// 内存块结构体
+typedef struct mem_block {
+    uint32_t alloca_size;   // alloca[31]|size[30:0]
+    struct mem_block* next; // 指向下一个内存块
+} mem_block;
 
-struct Byte{
-    uint8_t flags;
-};
-
-#define BYTE_TAKEN (uint8_t)(1<<0)
-#define LAST_BYTE  (uint8_t)(1<<1)
-
-static inline void _clear(struct Byte* byte)
-{
-    byte->flags=0;
+static inline uint32_t get_block_size(const mem_block* block) {
+    return block->alloca_size & 0x7FFFFFFF;
 }
 
-static inline int _is_free(struct Byte* byte)
-{
-    return (byte->flags & BYTE_TAKEN) ? 0 : 1;
+static inline void set_block_size(mem_block* block, uint32_t size) {
+    block->alloca_size = (block->alloca_size & 0x80000000) | (size & 0x7FFFFFFF);
 }
 
-static inline void _set_flag(struct Byte* byte, uint8_t flags)
-{
-    byte->flags|=flags;
+static inline uint32_t is_allocated(const mem_block* block) {
+    return (block->alloca_size & 0x80000000) != 0;
 }
 
-static inline int _is_last(struct Byte* byte)
-{
-    return (byte->flags & LAST_BYTE) ? 1 : 0;
+static inline void mark_allocated(mem_block* block) {
+    block->alloca_size |= 0x80000000;
 }
 
-void heap_init()
-{
-    uint32_t metadata_bytes = LENGTH_RAM>>1;     // 1B metadata per 1B
-    _num_bytes = HEAP_SIZE-metadata_bytes;
-    printf("HEAP_START = %p, HEAP_SIZE = 0x%lx,\n"
-	       "num of reserved bytes = %d, num of bytes to be allocated for heap = %d\n",
-	       HEAP_START, HEAP_SIZE,
-	       metadata_bytes, _num_bytes);
-
-    // struct Byte* byte = (struct Byte*)HEAP_START;
-	
-	_alloc_start = HEAP_START + metadata_bytes;
-	_alloc_end = _alloc_start + _num_bytes;
-
-	printf("TEXT:   %p -> %p\n", TEXT_START, TEXT_END);
-	printf("RODATA: %p -> %p\n", RODATA_START, RODATA_END);
-	printf("DATA:   %p -> %p\n", DATA_START, DATA_END);
-	printf("BSS:    %p -> %p\n", BSS_START, BSS_END);
-	printf("HEAP:   %p -> %p\n", _alloc_start, _alloc_end);
+static inline void mark_free(mem_block* block) {
+    block->alloca_size &= ~0x80000000;
 }
 
-// TODO: alloc/free from page
-extern void* page_alloc(int npage);
-extern void page_free(void* p);
+static mem_block* heap_start = NULL;
+static mem_block* free_list = NULL;
 
-void* malloc(uint32_t bytes)
+#define PAGE_ORDER 12
+static inline ptr_t _align_page(ptr_t address)
 {
-    int found = 0;
-    struct Byte* byte_i = (struct Byte*)HEAP_START;
-    int i=0;
-    while( i<_num_bytes-bytes ){
-        struct Byte* byte_j = byte_i;
-        if(_is_free(byte_i)){
-            found = 1;
-            for(int j=i;j<i+bytes;++j){
-                if(!_is_free(byte_j)){
-                    found = 0;
-                    break;
-                }
-                byte_j+=1;
+	ptr_t order = (1 << PAGE_ORDER) - 1;
+	return (address + order) & (~order);
+}
+
+void heap_init() {
+    if (heap_start == NULL) {
+        heap_start = (mem_block*)_align_page(HEAP_START);
+        set_block_size(heap_start, HEAP_SIZE - sizeof(mem_block));
+        printf("HEAP_START = %p, HEAP_SIZE = 0x%x,\n", heap_start, get_block_size(heap_start));
+        mark_free(heap_start);
+        heap_start->next = NULL;
+        free_list = heap_start;
+    }
+}
+
+void* malloc(uint32_t size) {
+    heap_init();
+    mem_block* current_block = free_list;
+    while (current_block != NULL) {
+        if (!is_allocated(current_block) && get_block_size(current_block) >= size + sizeof(mem_block)) {
+            if (get_block_size(current_block) > size + sizeof(mem_block) * 2) { 
+                mem_block* new_block = (mem_block*)((uint8_t*)current_block + sizeof(mem_block) + size);
+                // 从尾部划分新的空闲块
+                set_block_size(new_block, get_block_size(current_block)-(size + sizeof(mem_block)));
+                mark_free(new_block);
+                new_block->next = current_block->next;
+                set_block_size(current_block, size + sizeof(mem_block));
+                current_block->next = new_block;
             }
+            mark_allocated(current_block);
+            return (void*)(current_block + 1);
         }
-        if(found){
-            for (int k=0; k<bytes;++k)
-                _set_flag(byte_i+k, BYTE_TAKEN);
-            _set_flag(byte_i+bytes-1, LAST_BYTE);
-            return (void *)(_alloc_start+(byte_i-HEAP_START));
-		}
-        byte_i = byte_j + 1;
+        current_block = current_block->next;
     }
     return NULL;
 }
 
-void free(void* mem)
-{
-    if( mem==NULL || (ptr_t)mem >= _alloc_end )
+void free(void* ptr) {
+    if (ptr == NULL) 
         return;
-    struct Byte* byte = (struct Byte*) HEAP_START;
-    byte += ((ptr_t)mem-_alloc_start);
-    while(!_is_free(byte)){
-        if(_is_last(byte)){
-            _clear(byte);
-            return;
-        }
-        _clear(byte);
-        ++byte;
+    mem_block* block = (mem_block*)ptr-1; // 获取块头部
+    mark_free(block);
+    // 简单合并碎片
+    mem_block* prev = NULL;
+    mem_block* next = block->next;    
+    if (prev && !is_allocated(prev)) {
+        set_block_size(prev, get_block_size(prev)+get_block_size(block));
+        prev->next = next;
+        block = prev;
+    }
+    if (next && !is_allocated(next)) {
+        set_block_size(block, get_block_size(next)+get_block_size(block));
+        block->next = next->next;
     }
 }
 
 void malloc_test()
 {
-	void *p1 = malloc(2);
+	void *p1 = malloc(22);
 	printf("malloc p1 = %p\n", p1);
-	//page_free(p);
-
-	void *p2 = malloc(7);
+	void *p2 = malloc(71);
 	printf("malloc p2 = %p\n", p2);
-
 	void *p3 = malloc(114);
 	printf("malloc p3 = %p\n", p3);
-
-    free(p2);
     void *p4 = malloc(14);
 	printf("malloc p4 = %p\n", p4);
     free(p4);
-    free(p3);
-    void *p5 = malloc(3);
-    printf("malloc p5 = %p\n", p5);
-    free(p5);
-    free(p1);
+    printf("%p freed.\n", p4);
+    void *p6 = malloc(39);
+    printf("malloc p6 = %p\n", p6);
+    free(p2);
+    printf("%p freed.\n", p2);
+    void *p7 = malloc(39);
+    printf("malloc p7 = %p\n", p7);
 }
