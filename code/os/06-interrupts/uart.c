@@ -133,9 +133,18 @@ int uart_getc(void)
 /*
  * handle a uart interrupt, raised because input has arrived, called from trap.c.
  */
+// 中断实现
 void uart_isr(void)
 {
-	uart_putc((char)uart_getc());
+    if ((uart_read_reg(LSR) & LSR_TX_IDLE) != 0){
+        if (uart_read_reg(LSR) & LSR_RX_READY) {
+            char received_char = uart_read_reg(RHR);
+            uart_write_reg(THR, received_char);
+            uart_write_reg(THR, '\n');
+        }
+    }
+    
+    // uart_putc((char)uart_getc());
 	/* add a new line just to look better */
-	uart_putc('\n');
+	// uart_putc('\n');
 }
