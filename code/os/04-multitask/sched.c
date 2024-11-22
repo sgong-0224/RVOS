@@ -14,9 +14,9 @@ uint8_t __attribute__((aligned(16))) task_stack[MAX_TASKS][STACK_SIZE];
 // TODO: task_info
 typedef struct {
     struct context ctx;
-    void (*start_routine)(void* param);
-    uint8_t priority;
     uint8_t exited;
+    void (*start_routine)(void* param);
+    uint16_t priority;
 } task_info;
 
 task_info tasks[MAX_TASKS];
@@ -36,9 +36,9 @@ static void w_mscratch(reg_t x)
 
 /*
  * implment a simple cycle FIFO schedular
- * 修改任务调度算法，在原先简单轮转的基础上⽀持按照优先级排序，优先选择优先级⾼的任务运⾏，同⼀级多个任务再轮转。
+ * 修改任务调度算法，在原先简单轮转的基础上支持按照优先级排序，优先选择优先级高的任务运行，同⼀级多个任务再轮转。
  */
-#define SCHED_PRIORITY 255
+#define SCHED_PRIORITY 256
 task_info scheduler;
 void schedule()
 {
@@ -47,7 +47,7 @@ void schedule()
         return;
     }
     
-    int priority = 0;
+    uint16_t priority = 0;
 
     while ( priority<=255 ) {
         for (int i = 0; i < _top; ++i) {
@@ -96,8 +96,8 @@ void sched_init()
  * 	0: success
  * 	-1: if error occured
  *
- *  param ⽤于在创建任务执⾏函数时可带入参数，如果没有参数则传入 NULL。
- *  priority ⽤于指定任务的优先级，⽬前要求最多⽀持 256 级，0 最⾼，依次类推。
+ *  param 用于在创建任务执行函数时可带入参数，如果没有参数则传入 NULL。
+ *  priority 用于指定任务的优先级，目前要求最多支持 256 级，0 最高，依次类推。
  *  
  */
 int task_create(void (*start_routine)(void* param), void *param, uint8_t priority)
@@ -119,7 +119,7 @@ int task_create(void (*start_routine)(void* param), void *param, uint8_t priorit
 }
 
 /*
- *  增加任务退出接⼝ task_exit()，当前任务可以通过调⽤该接⼝退出执⾏，内核负责将该任务回收，并调度下⼀个可运⾏任务。
+ *  增加任务退出接口 task_exit()，当前任务可以通过调用该接口退出执行，内核负责将该任务回收，并调度下⼀个可运行任务。
  *  void task_exit(void)
  */
 void task_exit()

@@ -62,6 +62,7 @@ void os_main(void)
     static func1_params func1_param={3,4,5};
 	task_create(user_task0_wrap,NULL,100);
 	task_create(user_task2_wrap,NULL,3);
+	task_create(user_task1_wrap,&func1_param,3);
 	task_create(user_task1_wrap,&func1_param,1);
 }
 
