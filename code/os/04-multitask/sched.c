@@ -16,6 +16,7 @@ typedef struct {
     struct context ctx;
     void (*start_routine)(void* param);
     uint8_t priority;
+    uint8_t exited;
 } task_info;
 
 task_info tasks[MAX_TASKS];
@@ -37,6 +38,8 @@ static void w_mscratch(reg_t x)
  * implment a simple cycle FIFO schedular
  * 修改任务调度算法，在原先简单轮转的基础上⽀持按照优先级排序，优先选择优先级⾼的任务运⾏，同⼀级多个任务再轮转。
  */
+#define SCHED_PRIORITY 254
+task_info scheduler;
 void schedule()
 {
     if (_top < 0) {
@@ -46,35 +49,44 @@ void schedule()
     
     int priority = 0;
 
-    while ( priority < 255 ) {  // 跳过已退出的任务
+    while ( priority!=255 ) {
         for (int i = 0; i < _top; ++i) {
-            if ( tasks[i].priority == priority ) {
+            if ( tasks[i].priority == priority && !tasks[i].exited ) {
                 // 找最高优先级的任务
                 _current = i;
-                goto found_task;
+                current_priority = tasks[_current].priority;
+                switch_to(&(tasks[_current].ctx));
+                return;
             }
         }
         // 尝试更低的优先级
         ++priority; 
     }
+    _current = -1;
+    switch_to(&scheduler.ctx);
+}
 
-found_task:
-    // 执行
-    current_priority = tasks[_current].priority;
-    switch_to(&(tasks[_current].ctx));
-    for (int i = _current+1; i < _top || (i=0,i<_current) ; ++i) {
-        if ( tasks[i].priority == current_priority && tasks[i].priority!=255 ) {
-            // 轮转到相同优先级的下一个任务
-            _current = i;
-            break;
-        }
+// 内核调度任务
+void sched_task()
+{
+    while(1){
+        schedule();
     }
 }
 
 void sched_init()
 {
 	w_mscratch(0);
+
+    // scheduler初始化
+    scheduler.start_routine = &sched_task;
+    scheduler.priority = SCHED_PRIORITY;
+    scheduler.ctx.sp = (reg_t) &task_stack[MAX_TASKS-1][STACK_SIZE-1];
+    scheduler.ctx.ra = (reg_t) &sched_task;
+    scheduler.ctx.a0 = 0;
+    scheduler.exited = 0;
 }
+
 
 /*
  * DESCRIPTION
@@ -90,7 +102,7 @@ void sched_init()
  */
 int task_create(void (*start_routine)(void* param), void *param, uint8_t priority)
 {
-    if (_top < MAX_TASKS) {
+    if ( _top < MAX_TASKS-1 ) {
         // 初始化任务信息
         tasks[_top].start_routine = start_routine;
         tasks[_top].priority = priority;
@@ -112,7 +124,7 @@ int task_create(void (*start_routine)(void* param), void *param, uint8_t priorit
  */
 void task_exit()
 {
-    tasks[_current].priority = 255; // 用最低优先级标记清理
+    tasks[_current].exited = 1;
     _current = -1;
     task_yield();
 }
@@ -125,7 +137,7 @@ void task_exit()
  */
 void task_yield()
 {
-	schedule();
+	switch_to(&scheduler.ctx);
 }
 
 /*
