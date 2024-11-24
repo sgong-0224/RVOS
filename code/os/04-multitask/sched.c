@@ -13,10 +13,9 @@ uint8_t __attribute__((aligned(16))) task_stack[MAX_TASKS][STACK_SIZE];
 
 // TODO: task_info
 typedef struct {
-    struct context ctx;
-    uint8_t exited;
     void (*start_routine)(void* param);
     uint16_t priority;
+    struct context ctx;
 } task_info;
 
 task_info tasks[MAX_TASKS];
@@ -27,7 +26,6 @@ task_info tasks[MAX_TASKS];
  */
 static int _top = 0;
 static int _current = -1;
-static int current_priority = 0;
 
 static void w_mscratch(reg_t x)
 {
@@ -51,14 +49,9 @@ void schedule()
 
     while ( priority<=255 ) {
         for (int i = 0; i < _top; ++i) {
-            if ( tasks[i].priority == priority && !tasks[i].exited ) {
-            if ( tasks[i].priority == priority && !tasks[i].exited ) {
+            if ( tasks[i].priority == priority ) {
                 // 找最高优先级的任务
                 _current = i;
-                current_priority = tasks[_current].priority;
-                switch_to(&(tasks[_current].ctx));
-                return;
-                current_priority = tasks[_current].priority;
                 switch_to(&(tasks[_current].ctx));
                 return;
             }
@@ -66,15 +59,6 @@ void schedule()
         // 尝试更低的优先级
         ++priority; 
     }
-    _current = -1;
-    switch_to(&scheduler.ctx);
-}
-
-// 内核调度任务
-void sched_task()
-{
-    while(1){
-        schedule();
     _current = -1;
     switch_to(&scheduler.ctx);
 }
@@ -97,17 +81,6 @@ void sched_init()
     scheduler.ctx.sp = (reg_t) &task_stack[MAX_TASKS-1][STACK_SIZE-1];
     scheduler.ctx.ra = (reg_t) &sched_task;
     scheduler.ctx.a0 = 0;
-    scheduler.exited = 0;
-}
-
-
-    // scheduler初始化
-    scheduler.start_routine = &sched_task;
-    scheduler.priority = SCHED_PRIORITY;
-    scheduler.ctx.sp = (reg_t) &task_stack[MAX_TASKS-1][STACK_SIZE-1];
-    scheduler.ctx.ra = (reg_t) &sched_task;
-    scheduler.ctx.a0 = 0;
-    scheduler.exited = 0;
 }
 
 
@@ -125,7 +98,6 @@ void sched_init()
  */
 int task_create(void (*start_routine)(void* param), void *param, uint8_t priority)
 {
-    if ( _top < MAX_TASKS-1 ) {
     if ( _top < MAX_TASKS-1 ) {
         // 初始化任务信息
         tasks[_top].start_routine = start_routine;
@@ -148,8 +120,7 @@ int task_create(void (*start_routine)(void* param), void *param, uint8_t priorit
  */
 void task_exit()
 {
-    tasks[_current].exited = 1;
-    tasks[_current].exited = 1;
+    tasks[_current].priority = 257;
     _current = -1;
     task_yield();
 }
@@ -162,7 +133,6 @@ void task_exit()
  */
 void task_yield()
 {
-	switch_to(&scheduler.ctx);
 	switch_to(&scheduler.ctx);
 }
 

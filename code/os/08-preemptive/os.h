@@ -61,7 +61,8 @@ struct context {
 	reg_t pc; // offset: 31 * sizeof(reg_t)
 };
 
-extern int  task_create(void (*task)(void));
+extern int task_create(void (*start_routine)(void* param), void *param, uint8_t priority, uint32_t timeslice);
+extern void task_exit();
 extern void task_delay(volatile int count);
 extern void task_yield();
 
