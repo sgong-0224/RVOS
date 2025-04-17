@@ -12,7 +12,7 @@ void user_task0(void)
 		
 		trap_test();
 
-		task_delay(DELAY);
+		task_delay(10);
 		task_yield();
 	}
 }
@@ -22,7 +22,7 @@ void user_task1(void)
 	uart_puts("Task 1: Created!\n");
 	while (1) {
 		uart_puts("Task 1: Running...\n");
-		task_delay(DELAY);
+		task_delay(10);
 		task_yield();
 	}
 }

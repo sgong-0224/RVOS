@@ -8,7 +8,8 @@ extern void schedule(void);
 static uint32_t _tick = 0;
 
 #define MAX_TIMER 10
-static struct timer timer_list[MAX_TIMER];
+// static struct timer timer_list[MAX_TIMER];
+static struct timer* timer_list = NULL;
 
 /* load timer interval(in ticks) for next timer interrupt.*/
 void timer_load(int interval)
@@ -21,13 +22,6 @@ void timer_load(int interval)
 
 void timer_init()
 {
-	struct timer *t = &(timer_list[0]);
-	for (int i = 0; i < MAX_TIMER; i++) {
-		t->func = NULL; /* use .func to flag if the item is used */
-		t->arg = NULL;
-		t++;
-	}
-
 	/*
 	 * On reset, mtime is cleared to zero, but the mtimecmp registers 
 	 * are not reset. So we have to init the mtimecmp manually.
@@ -48,21 +42,24 @@ struct timer *timer_create(void (*handler)(void *arg), void *arg, uint32_t timeo
 	/* use lock to protect the shared timer_list between multiple tasks */
 	spin_lock();
 
-	struct timer *t = &(timer_list[0]);
-	for (int i = 0; i < MAX_TIMER; i++) {
-		if (NULL == t->func) {
-			break;
-		}
-		t++;
-	}
-	if (NULL != t->func) {
-		spin_unlock();
-		return NULL;
-	}
-
+    struct timer* t = (struct timer*) malloc(sizeof(struct timer));
 	t->func = handler;
 	t->arg = arg;
 	t->timeout_tick = _tick + timeout;
+    t->next = NULL;
+    if( timer_list == NULL ) {
+        timer_list = t;
+    } else {
+        // 按照时间顺序插入
+        for(struct timer* ptr = timer_list; ptr!=NULL;ptr = ptr->next){
+            if( ptr->timeout_tick <= t->timeout_tick
+            && ( ptr->next==NULL || t->timeout_tick <= ptr->next->timeout_tick ) ){
+                t->next = ptr->next;
+                ptr->next = t;   
+                break;
+            }
+        }
+    }
 
 	spin_unlock();
 
@@ -73,14 +70,21 @@ void timer_delete(struct timer *timer)
 {
 	spin_lock();
 
-	struct timer *t = &(timer_list[0]);
-	for (int i = 0; i < MAX_TIMER; i++) {
+	struct timer* prev = NULL;
+	for(struct timer *t = timer_list;t!=NULL;t=t->next){
 		if (t == timer) {
-			t->func = NULL;
-			t->arg = NULL;
-			break;
+			if(prev==NULL){
+                timer_list = t->next;
+            } else {
+                prev->next = t->next;
+                t->func = NULL;
+                t->arg = NULL;
+                t->next = NULL;
+            }
+            free(t);
+            break;
 		}
-		t++;
+        prev = t;
 	}
 
 	spin_unlock();
@@ -89,20 +93,26 @@ void timer_delete(struct timer *timer)
 /* this routine should be called in interrupt context (interrupt is disabled) */
 static inline void timer_check()
 {
-	struct timer *t = &(timer_list[0]);
-	for (int i = 0; i < MAX_TIMER; i++) {
+    struct timer* prev = NULL;
+	for (struct timer* t=timer_list; t!=NULL; t=t->next) {
 		if (NULL != t->func) {
 			if (_tick >= t->timeout_tick) {
 				t->func(t->arg);
 
 				/* once time, just delete it after timeout */
-				t->func = NULL;
-				t->arg = NULL;
-
-				break;
+				if(prev==NULL){
+                    timer_list = t->next;
+                } else {
+                    prev->next = t->next;
+                    t->func = NULL;
+                    t->arg = NULL;
+                    t->next = NULL;
+                }
+                free(t);
+                break;
 			}
 		}
-		t++;
+        prev = t;
 	}
 }
 

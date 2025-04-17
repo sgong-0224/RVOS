@@ -20,6 +20,8 @@ extern void panic(char *s);
 /* memory management */
 extern void *page_alloc(int npages);
 extern void page_free(void *p);
+extern void *malloc(uint32_t size);
+extern void free(void *p);
 
 /* task management */
 struct context {
@@ -78,6 +80,7 @@ struct timer {
 	void (*func)(void *arg);
 	void *arg;
 	uint32_t timeout_tick;
+    struct timer* next;
 };
 extern struct timer *timer_create(void (*handler)(void *arg), void *arg, uint32_t timeout);
 extern void timer_delete(struct timer *timer);

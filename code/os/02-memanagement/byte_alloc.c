@@ -53,10 +53,15 @@ void heap_init() {
     if (heap_start == NULL) {
         heap_start = (mem_block*)_align_page(HEAP_START);
         set_block_size(heap_start, HEAP_SIZE - sizeof(mem_block));
-        printf("HEAP_START = %p, HEAP_SIZE = 0x%x,\n", heap_start, get_block_size(heap_start));
+        printf("HEAP_START = %p, HEAP_SIZE = 0x%x.\n", heap_start, get_block_size(heap_start));
         mark_free(heap_start);
         heap_start->next = NULL;
         free_list = heap_start;
+        printf("TEXT:   %p -> %p\n", TEXT_START, TEXT_END);
+        printf("RODATA: %p -> %p\n", RODATA_START, RODATA_END);
+        printf("DATA:   %p -> %p\n", DATA_START, DATA_END);
+        printf("BSS:    %p -> %p\n", BSS_START, BSS_END);
+        printf("HEAP:   %p -> %p\n", HEAP_START, HEAP_START+HEAP_SIZE-1);
     }
 }
 

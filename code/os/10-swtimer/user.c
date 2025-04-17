@@ -1,6 +1,6 @@
 #include "os.h"
 
-#define DELAY 4000
+#define DELAY 2
 
 struct userdata {
 	int counter;

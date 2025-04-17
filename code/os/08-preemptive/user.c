@@ -1,6 +1,6 @@
 #include "os.h"
 
-#define DELAY 1000
+#define DELAY 1
 
 void user_task0(void)
 {
@@ -53,6 +53,5 @@ void os_main(void)
     static func1_params func1_param={3,4,5};
 	task_create(user_task0_wrap,NULL,100,5);
 	task_create(user_task1_wrap,&func1_param,2,2);
-	// task_create(user_task2_wrap,NULL,2,2);
 }
 

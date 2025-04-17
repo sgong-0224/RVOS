@@ -8,6 +8,7 @@ SRCS_C = \
 	uart.c \
 	printf.c \
 	page.c \
+	byte_alloc.c \
 	sched.c \
 	user.c \
 	trap.c \

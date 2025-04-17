@@ -63,4 +63,7 @@
 #define PLIC_MCLAIM(hart) (PLIC_BASE + 0x200004 + (hart) * 0x1000)
 #define PLIC_MCOMPLETE(hart) (PLIC_BASE + 0x200004 + (hart) * 0x1000)
 
+#define CLINT_BASE 0x2000000L
+#define CLINT_MSIP(hartid) (CLINT_BASE + 4 * (hartid))
+
 #endif /* __PLATFORM_H__ */

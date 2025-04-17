@@ -2,7 +2,7 @@
 
 #include "user_api.h"
 
-#define DELAY 4000
+#define DELAY 1
 
 void user_task0(void)
 {

@@ -36,7 +36,7 @@ void schedule()
  */
 void task_delay(volatile int count)
 {
-	count *= 50000;
+	count *= 5000;
 	while (count--);
 }
 

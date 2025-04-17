@@ -34,7 +34,7 @@ reg_t trap_handler(reg_t epc, reg_t cause)
 	} else {
 		/* Synchronous trap - exception */
 		printf("Sync exceptions! Code = %ld\n", cause_code);
-		task_delay(1000);
+		task_delay(10);
         //panic("OOPS! What can I do!");
 		return_pc += 4;
 	}

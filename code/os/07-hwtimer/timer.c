@@ -20,8 +20,9 @@ void timer_init()
 	 * On reset, mtime is cleared to zero, but the mtimecmp registers 
 	 * are not reset. So we have to init the mtimecmp manually.
 	 */
-	timer_load(TIMER_INTERVAL);
 
+	timer_load(TIMER_INTERVAL);
+    printf("Timer reset!\n");
 	/* enable machine-mode timer interrupts. */
 	w_mie(r_mie() | MIE_MTIE);
 
@@ -42,6 +43,6 @@ void timer_handler()
     int sec = _tick % 60;
     int sec_hi = sec/10;
     int sec_lo = sec%10;
-    printf("%d%d:%d%d:%d%d\r",hr_hi,hr_lo,min_hi,min_lo,sec_hi,sec_lo);
+    printf("%d%d:%d%d:%d%d\n",hr_hi,hr_lo,min_hi,min_lo,sec_hi,sec_lo);
 	timer_load(TIMER_INTERVAL);
 }

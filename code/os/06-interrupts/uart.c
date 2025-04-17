@@ -110,17 +110,45 @@ void uart_init()
 	uart_write_reg(IER, ier | (1 << 0));
 }
 
+// 发送缓冲区
+#define UART_TX_BUF_SIZE 256
+char uart_tx_buffer[UART_TX_BUF_SIZE];
+volatile uint8_t uart_tx_head = 0;
+volatile uint8_t uart_tx_tail = 0;
+static inline int uart_tx_full(void) 
+{
+    return (uart_tx_head + 1) % UART_TX_BUF_SIZE == uart_tx_tail;
+}
+static inline int uart_tx_empty(void) 
+{
+    return uart_tx_head == uart_tx_tail;
+}
+static inline void uart_tx_enqueue(char ch) 
+{
+    uart_tx_buffer[uart_tx_head] = ch;
+    uart_tx_head = (uart_tx_head + 1) % UART_TX_BUF_SIZE;
+}
+static inline char uart_tx_dequeue(void) 
+{
+    char ch = uart_tx_buffer[uart_tx_tail];
+    uart_tx_tail = (uart_tx_tail + 1) % UART_TX_BUF_SIZE;
+    return ch;
+}
+
 int uart_putc(char ch)
 {
-	while ((uart_read_reg(LSR) & LSR_TX_IDLE) == 0);
+    // TODO:
+    while ((uart_read_reg(LSR) & LSR_TX_IDLE) == 0);
 	return uart_write_reg(THR, ch);
 }
 
 void uart_puts(char *s)
 {
 	while (*s) {
-		uart_putc(*s++);
-	}
+	    uart_putc(*s++);
+        // uart_tx_enqueue(*s++);
+    }
+    // *(uint32_t*)CLINT_MSIP(r_mhartid()) = 1;
 }
 
 int uart_getc(void)
@@ -133,18 +161,9 @@ int uart_getc(void)
 /*
  * handle a uart interrupt, raised because input has arrived, called from trap.c.
  */
-// 中断实现
 void uart_isr(void)
 {
-    if ((uart_read_reg(LSR) & LSR_TX_IDLE) != 0){
-        if (uart_read_reg(LSR) & LSR_RX_READY) {
-            char received_char = uart_read_reg(RHR);
-            uart_write_reg(THR, received_char);
-            uart_write_reg(THR, '\n');
-        }
-    }
-    
-    // uart_putc((char)uart_getc());
+    uart_putc((char)uart_getc());
 	/* add a new line just to look better */
-	// uart_putc('\n');
+	uart_putc('\n');
 }

@@ -12,7 +12,7 @@ void start_kernel(void)
         while((a=uart_getc())!=-1){
             if(a==0xd)
                 uart_putc(0xa); // CR -> LF+CR
-            uart_putc(a);
+            uart_putc(a==-1);
         }
     }; // stop here!
 }

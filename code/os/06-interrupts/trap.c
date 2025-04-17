@@ -9,6 +9,7 @@ void trap_init()
 	 * set the trap-vector base-address for machine-mode
 	 */
 	w_mtvec((reg_t)trap_vector);
+    w_mie(r_mie()|MIE_MSIE);
 }
 
 void external_interrupt_handler()
@@ -16,7 +17,7 @@ void external_interrupt_handler()
 	int irq = plic_claim();
 
 	if (irq == UART0_IRQ){
-      		uart_isr();
+      	uart_isr();
 	} else if (irq) {
 		printf("unexpected interrupt irq = %d\n", irq);
 	}
@@ -35,7 +36,9 @@ reg_t trap_handler(reg_t epc, reg_t cause)
 		/* Asynchronous trap - interrupt */
 		switch (cause_code) {
 		case 3:
+            // *(uint32_t*)CLINT_MSIP(r_mhartid()) = 0;
 			uart_puts("software interruption!\n");
+            uart_isr();
 			break;
 		case 7:
 			uart_puts("timer interruption!\n");
